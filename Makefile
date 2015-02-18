@@ -14,7 +14,7 @@ clean:
 dev: compile
 	erl -pa ebin -pa deps/*/ebin \
 	-eval "[application:start(A) || A <- [compiler, syntax_tools, goldrush, lager]], \
-		pr_fsm:start_link(8999, [{state, active}, {ip, $(ip)}, \
+		pr_fsm:start_link(8999, [{state, $(state)}, {ip, $(ip)}, \
 		{peer_ip, $(peer_ip)}, {iterations, 1}])"
 
 
