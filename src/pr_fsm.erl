@@ -60,7 +60,7 @@ passive(timeout, #state{iterations = 0} = State) ->
 passive(timeout, #state{iterations = N} = State) ->
     SockOpts = [{ip, State#state.ip}, {active, false}, binary],
     {ok, Sock} = gen_udp:open(State#state.port, SockOpts),
-    {ok, Addr, Port, Packet} = gen_udp:recv(Sock, 100),
+    {ok, {Addr, Port, Packet}} = gen_udp:recv(Sock, 100),
     lager:info("Received ~p from ~p:~p", [Packet, Addr, Port]),
     {next_state, active, State#state{iterations = N - 1}}.
 
