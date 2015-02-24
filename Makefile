@@ -21,7 +21,7 @@ dev: compile
 	-eval "[application:start(A) || A <- [compiler, syntax_tools, goldrush, lager]], \
 		pr_fsm:start_link(8999, [{state, $(state)}, {ip, $(ip)}, \
 		{peer_ip, $(peer_ip)}, {pair_no, $(pair_no)}, \
-		{intf_name, $(intf)}, {iterations, $(it)}])"
+		{intf_name, '$(intf)'}, {iterations, $(it)}])"
 
 # has to be run with sudo
 test_setup:
