@@ -1,20 +1,15 @@
 -module(pr_fsm).
 -behaviour(gen_fsm).
--define(SERVER, ?MODULE).
 
-%% ------------------------------------------------------------------
-%% API Function Exports
-%% ------------------------------------------------------------------
-
+%% API
 -export([start_link/2]).
 -compile([export_all]).
 
-%% ------------------------------------------------------------------
-%% gen_fsm Function Exports
-%% ------------------------------------------------------------------
-
+%% Callbacks
 -export([init/1, active/2, passive/2, terminate/3, handle_event/3,
          handle_sync_event/4, handle_info/3]).
+
+-define(NO_ARP, "No ARP entry for").
 
 %% ------------------------------------------------------------------
 %% Types
@@ -58,25 +53,19 @@ init([Port, Opts]) ->
 active(timeout, #state{it = N} = State) when N > State#state.iterations ->
     lager:info("Finishing in active state"),
     {stop, normal, State};
-active(timeout, #state{it = N, sock = Sock,
-                       base_mac = Mac0, intf_name = Intf} = State) ->
+active(timeout, #state{it = N, sock = Sock} = State) ->
     gen_udp:send(Sock, State#state.peer_ip, State#state.port, Data = data()),
-    Mac1 = format_mac(Mac0, N),
-    set_mac(Mac1, Intf),
+    reconfigure_networking(State),
     lager:info("Sent ~p", [Data]),
-    lager:info("Changed MAC to: ~s", [Mac1]),
     {next_state, passive, State#state{it = N + 1}, 0}.
 
 passive(timeout, #state{it = N} = State) when N > State#state.iterations ->
     lager:info("Finising in passive state"),
     {stop, normal, State};
-passive(timeout, #state{it = N, sock = Sock,
-                        base_mac = Mac0, intf_name = Intf} = State) ->
+passive(timeout, #state{it = N, sock = Sock} = State) ->
     {ok, {Addr, Port, Packet}} = gen_udp:recv(Sock, 100),
-    Mac1 = format_mac(Mac0, N),
-    set_mac(Mac1, Intf),
+    reconfigure_networking(State),
     lager:info("Received ~p from ~p:~p", [Packet, Addr, Port]),
-    lager:info("Changed MAC to: ~p",[Mac1]),
     {next_state, active, State#state{it = N + 1}, 0}.
 
 handle_event(_Event, StateName, State) ->
@@ -128,9 +117,28 @@ format_mac(BaseMac, It) ->
     {First, Second} = lists:split(2, ItPart1),
     BaseMac ++ First ++ ":" ++ Second.
 
+reconfigure_networking(#state{base_mac = Mac0, it = N,
+                              intf_name = Intf, peer_ip = PeerIp}) ->
+    Mac1 = format_mac(Mac0, N),
+    set_mac(Mac1, Intf),
+    lager:info("Changed MAC to: ~s", [Mac1]),
+    clean_arp(PeerIp).
+
 set_mac(Mac, Intf) ->
     Cmd = io_lib:format("ip link set ~s address ~s",[Intf, Mac]),
     [] = os:cmd(Cmd).
+
+clean_arp(PeerIP0) ->
+    PeerIP1 = inet:ntoa(PeerIP0),
+    Cmd = io_lib:format("arp -d ~s", [PeerIP1]),
+    case os:cmd(Cmd) of
+        [] ->
+            ok;
+        NoArpOrError ->
+            ?NO_ARP == string:substr(NoArpOrError, 1, length(?NO_ARP))
+                orelse
+                throw(io_lib:format("Arp cleaning error: ~s", [NoArpOrError]))
+    end.
 
 base_ip(PairNo, InitState) when PairNo =< 16#FFFF - 1 ->
     Ip0 = case InitState of
