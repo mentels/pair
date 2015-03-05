@@ -2,6 +2,7 @@ NS = pair
 INTF0 = veth0
 INTF1 = veth1
 IT=5
+PORT = 8999
 
 .PHONY: all compile deps clean dev
 
@@ -18,10 +19,19 @@ clean:
 
 dev: compile
 	erl -pa ebin -pa deps/*/ebin \
-	-eval "[application:start(A) || A <- [compiler, syntax_tools, goldrush, lager]], \
-		pr_fsm:start_link(8999, [{state, $(state)}, {ip, $(ip)}, \
-		{peer_ip, $(peer_ip)}, {pair_no, $(pair_no)}, \
-		{intf_name, '$(intf)'}, {iterations, $(it)}])"
+	-pair port $(port) \
+	-pair state $(state) \
+	-pair ip \"$(ip)\" \
+	-pair peer_ip \"$(peer_ip)\" \
+	-pair pair_no $(pair_no) \
+	-pair intf_name $(intf) \
+	-pair iterations $(it) \
+	-eval "[application:start(A) || A <- [compiler, syntax_tools, \
+		goldrush, lager, pair]]"
+	# , \
+	# 	pr_fsm:start_link(8999, [{state, $(state)}, {ip, $(ip)}, \
+	# 	{peer_ip, $(peer_ip)}, {pair_no, $(pair_no)}, \
+	# 	{intf_name, '$(intf)'}, {iterations, $(it)}])"
 
 # has to be run with sudo
 test_setup:
@@ -37,12 +47,12 @@ test_teardown:
 	ip netns delete $(NS)
 
 test_pair1:
-	make dev state=active ip="{10,0,0,1}" peer_ip="{10,0,0,2}" \
+	make dev port=$(PORT) state=active ip="10.0.0.1" peer_ip="10.0.0.2" \
 	pair_no=1 it=$(IT) intf=$(INTF0)
 
 test_pair2:
-	ip netns exec $(NS) make dev state=passive ip="{10,0,0,2}" \
-	peer_ip="{10,0,0,1}" pair_no=1 it=$(IT) intf=$(INTF1)
+	ip netns exec $(NS) make dev port=$(PORT) state=passive ip="10.0.0.2" \
+	peer_ip="10.0.0.1" pair_no=1 it=$(IT) intf=$(INTF1)
 
 
 rebar:
