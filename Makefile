@@ -9,16 +9,13 @@ PORT = 8999
 all: compile
 
 compile:
-	./rebar get-deps compile
-
-deps:
-	./rebar get-deps
+	./rebar3 compile
 
 clean:
-	./rebar clean
+	./rebar3 clean
 
 dev: compile
-	erl -pa ebin -pa deps/*/ebin \
+	erl -pa _build/default/lib/*/ebin \
 	-pair port $(port) \
 	-pair state $(state) \
 	-pair ip \"$(ip)\" \
@@ -52,5 +49,5 @@ test_pair2:
 
 
 rebar:
-	wget -c http://github.com/rebar/rebar/wiki/rebar
-	chmod +x $@
+	wget -c https://s3.amazonaws.com/rebar3/rebar3
+	chmod +x rebar3
