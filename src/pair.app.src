@@ -3,10 +3,9 @@
   {description, ""},
   {vsn, "1"},
   {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib
-                 ]},
+  {applications, [kernel,
+                  stdlib,
+                  lager]},
   {mod, { pr_app, []}},
   {env, []}
  ]}.

@@ -26,6 +26,9 @@ dev: compile
 	-eval "[application:start(A) || A <- [compiler, syntax_tools, \
 		goldrush, lager, pair]]"
 
+rel:
+	./relx --vm_args config/vm.args
+
 # has to be run with sudo
 test_setup:
 	ip netns add $(NS)
