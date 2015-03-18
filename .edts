@@ -1,4 +1,4 @@
-:name "pair"
+:name "pair-edts"
 :node-sname "pair-edts"
 :lib-dirs '("deps")
 :app-include-dirs '("include")

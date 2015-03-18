@@ -37,28 +37,18 @@ start_link(Port, Opts) ->
 %% ------------------------------------------------------------------
 
 init([Port, Opts]) ->
-    PairNo = proplists:get_value(pair_no, Opts),
-    InitState = proplists:get_value(state, Opts),
-    Ip = proplists:get_value(ip, Opts),
-    {ok, ParsedIp} = inet:parse_ipv4_address(Ip),
-    PeerIp = proplists:get_value(peer_ip, Opts),
-    {ok, ParsedPeerIp} = inet:parse_ipv4_address(PeerIp),
-    State0 = #state{port = Port,
-                    ip = ParsedIp,
-                    peer_ip = ParsedPeerIp,
-                    it = 0,
-                    iterations = proplists:get_value(iterations, Opts, 1),
-                    intf_name = proplists:get_value(intf_name, Opts),
-                    base_mac = base_mac(PairNo, InitState),
-                    pair_no = PairNo},
+    State0 = prepare_config(Port, Opts),
     State1 = open_socket(State0),
-    {ok, InitState, State1, _Timeout = 0}.
+    clean_arp(State1#state.peer_ip),
+    {ok, proplists:get_value(state, Opts), State1, _Timeout = 0}.
 
 active(timeout, #state{it = N} = State) when N > State#state.iterations ->
     lager:info("Finishing in active state"),
     {stop, normal, State};
 active(timeout, #state{it = N, sock = Sock} = State) ->
-    gen_udp:send(Sock, State#state.peer_ip, State#state.port, Data = data()),
+    {ok, Res} = gen_udp:send(Sock, State#state.peer_ip, State#state.port, Data = data()),
+    lager:info("REst ~p~n", [Res]),
+    timer:sleep(5000),
     reconfigure_networking(State),
     lager:info("Sent ~p", [Data]),
     {next_state, passive, State#state{it = N + 1}, 0}.
@@ -90,6 +80,22 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+prepare_config(Port, Opts) ->
+    PairNo = proplists:get_value(pair_no, Opts),
+    InitState = proplists:get_value(state, Opts),
+    Ip = proplists:get_value(ip, Opts),
+    {ok, ParsedIp} = inet:parse_ipv4_address(Ip),
+    PeerIp = proplists:get_value(peer_ip, Opts),
+    {ok, ParsedPeerIp} = inet:parse_ipv4_address(PeerIp),
+    #state{port = Port,
+           ip = ParsedIp,
+           peer_ip = ParsedPeerIp,
+           it = 0,
+           iterations = proplists:get_value(iterations, Opts, 1),
+           intf_name = proplists:get_value(intf_name, Opts),
+           base_mac = base_mac(PairNo, InitState),
+           pair_no = PairNo}.
 
 data() ->
     <<"hello world">>.
