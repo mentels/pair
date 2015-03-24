@@ -113,15 +113,15 @@ clean_arp(#state{peer_ip = PeerIP0}) ->
     end.
 
 base_mac(PairNo, InitState) when PairNo =< 16#FFFF - 1 ->
-    Mac0 = case InitState of
-               active ->
-                   integer_to_list(PairNo + 1, 16);
-               passive ->
-                   integer_to_list(PairNo, 16)
-           end,
+    Mac0 = integer_to_list(PairNo, 16),
     MissingZeros = 4 - length(Mac0),
     Mac1 = [$0 || _ <- lists:seq(1, MissingZeros)] ++ Mac0,
-    Mac2 = Mac1 ++ (_Unused = "0000"), %% ++ (_Iteration = "0001");
+    Mac2 = Mac1 ++ case InitState of
+                       passive ->
+                           "0001";
+                       active ->
+                           "0002"
+                   end, %% ++ (_Iteration = "0001");
     format_base_mac(Mac2, []);
 base_mac(_, _) ->
     throw(pair_no_out_of_range).
