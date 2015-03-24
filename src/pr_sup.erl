@@ -3,7 +3,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/2]).
+-export([start_link/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -15,16 +15,21 @@
 %% API functions
 %% ===================================================================
 
-start_link(Port, Opts) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, [Port, Opts]).
+start_link(Port, State, Opts) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, [Port, State, Opts]).
 
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
-init([Port, Opts]) ->
+init([Port, State, Opts]) ->
+    Mod = case State of
+              passive ->
+                  pr_passive_fsm;
+              active ->
+                  pr_active_fsm
+          end,
     ChildSpec = {pr_fsm,
-                 {pr_fsm, start_link, [Port, Opts]},
-                 temporary, 5000, worker, [pr_fsm]},
+                 {Mod, start_link, [Port, Opts]},
+                 temporary, 5000, worker, [Mod]},
     {ok, {{one_for_one, 5, 10}, [ChildSpec]}}.
-

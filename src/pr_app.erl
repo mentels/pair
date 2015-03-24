@@ -13,9 +13,9 @@
 
 start(_StartType, _StartArgs) ->
     try read_opts() of
-        [{port, Port} | Rest] = Opts ->
-            lager:info("Loaded opts: ~p", [Opts]),
-            pr_sup:start_link(Port, Rest)
+        [{port, Port}, {state, State} | Rest] = Opts ->
+            lager:info("[~s] Loaded opts: ~p~n", [State, Opts]),
+            pr_sup:start_link(Port, State, Rest)
     catch
         _:Reason ->
             {error, Reason}
