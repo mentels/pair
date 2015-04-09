@@ -1,0 +1,19 @@
+#!/usr/bin/env escript
+
+main([PairNo, Port, Ip, PeerIp, Intf, Iters, State, CfgFile, LogFile]) ->
+    ActiveCfg = generate_sys_config(PairNo, Port, Ip, PeerIp, Intf, Iters, State, LogFile),
+    file:write_file(CfgFile, io_lib:format("~p.~n", [ActiveCfg])).
+
+generate_sys_config(PairNo, Port, Ip, PeerIp, Intf, Iters, State, LogFile) ->
+    [{pair,
+      [{pair_no, list_to_integer(PairNo)},
+       {port, list_to_integer(Port)},
+       {ip, Ip},
+       {peer_ip, PeerIp},
+       {intf_name, list_to_atom(Intf)},
+       {iterations, list_to_integer(Iters)},
+       {state, list_to_atom(State)}]},
+     {lager,
+      [{handlers, 
+        [{lager_file_backend, [{file, LogFile}, {level, info}]}]}]
+     }].
