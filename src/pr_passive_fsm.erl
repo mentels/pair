@@ -18,7 +18,8 @@
                 it :: integer(),
                 base_mac :: string(),
                 pair_no :: non_neg_integer(),
-                sock :: inet:socket()}).
+                sock :: inet:socket(),
+                last_packet :: binary()}).
 
 -define(NO_ARP, "No ARP entry for").
 
@@ -43,23 +44,22 @@ recv(timeout, #state{sock = Sock} = State) ->
     lager:info("[passive] Waiting for data..."),
     {ok, {Addr, Port, Packet}} = gen_udp:recv(Sock, 100),
     lager:info("[passive] Received ~p from ~p:~p", [Packet, Addr, Port]),
-    case Packet of
-        <<"finish">> ->
-            lager:info("[passive] Finished"),
-            {stop, normal, State};
-        _ ->
-            {next_state, config, State, 0}
-    end.
+    {next_state, config, State#state{last_packet = Packet}, 0}.
 
 config(timeout, State) ->
     reconfigure_networking(State),
     clean_arp(State),
     {next_state, send_ack, State, 0}.
 
-send_ack(timeout, #state{sock = Sock, it = N} = State) ->
+send_ack(timeout, #state{sock = Sock, it = N, last_packet = LastPacket} = State) ->
     ok = gen_udp:send(Sock, State#state.peer_ip, State#state.port, <<"ack">>),
     lager:info("[passive] Sent ack"),
-    {next_state, recv, State#state{it = N + 1}, 0}.
+    case LastPacket of
+        <<"finish">> ->
+            {stop, normal, State};
+        _ ->
+            {next_state, recv, State#state{it = N + 1}, 0}
+    end.
 
 handle_event(_Event, StateName, State) ->
     {next_state, StateName, State}.
@@ -72,6 +72,7 @@ handle_info(_Info, StateName, State) ->
     {next_state, StateName, State}.
 
 terminate(_Reason, _StateName, _State) ->
+    lager:info("[passive] Finished"),
     ok.
 
 code_change(_OldVsn, StateName, State, _Extra) ->
@@ -93,7 +94,8 @@ prepare_config(Port, Opts) ->
            intf_name = proplists:get_value(intf_name, Opts),
            it = 0,
            base_mac = base_mac(PairNo, passive),
-           pair_no = PairNo}.
+           pair_no = PairNo,
+           last_packet = <<>>}.
 
 open_socket(State) ->
     SockOpts = [{ip, State#state.ip}, {active, false}, binary],
