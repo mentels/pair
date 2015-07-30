@@ -52,14 +52,15 @@ config(timeout, State) ->
     {next_state, send_ack, State, 0}.
 
 send_ack(timeout, #state{sock = Sock, it = N, last_packet = LastPacket} = State) ->
-    ok = gen_udp:send(Sock, State#state.peer_ip, State#state.port, <<"ack">>),
-    lager:info("[passive] Sent ack"),
     case LastPacket of
-        <<"finish">> ->
+        <<"finish/", ItToAck/binary>> ->
+            send_ack(Sock, State#state.peer_ip, State#state.port, ItToAck),
             {stop, normal, State};
-        _ ->
+        <<"data/", ItToAck/binary>> ->
+            send_ack(Sock, State#state.peer_ip, State#state.port, ItToAck),
             {next_state, recv, State#state{it = N + 1}, 0}
     end.
+
 
 handle_event(_Event, StateName, State) ->
     {next_state, StateName, State}.
@@ -149,3 +150,7 @@ format_mac(BaseMac, It) ->
 set_mac(Mac, Intf) ->
     Cmd = io_lib:format("ip link set ~s address ~s",[Intf, Mac]),
     [] = os:cmd(Cmd).
+
+send_ack(Sock, Ip, Port, ItToAck) ->
+    ok = gen_udp:send(Sock, Ip, Port, Ack = <<"ack/", ItToAck/binary>>),
+    lager:info("[passive] Sent ack ~p", [Ack]).

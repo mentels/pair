@@ -10,6 +10,7 @@
          handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
 -define(SERVER, ?MODULE).
+-define(RECV_MILIS_TIMEOUT, 3000).
 
 -record(state, {port :: inet:port_number(),
                 ip :: inet:ip_address(),
@@ -57,8 +58,18 @@ send(timeout, #state{sock = Sock} = State) ->
     {next_state, wait_ack, State, 0}.
 
 wait_ack(timeout, #state{sock = Sock, it = N} = State) ->
-    {ok, {Addr, Port, Packet}} = gen_udp:recv(Sock, 100),
-    lager:info("[active] Received ~p from ~p:~p", [Packet, Addr, Port]),
+    ExpectedAck = expected_ack(N),
+    case gen_udp:recv(Sock, 100, ?RECV_MILIS_TIMEOUT) of
+        {ok, {Addr, Port, ExpectedAck = Packet}} ->
+            lager:info("[active] Received ack ~p from ~p:~p",
+                       [Packet, Addr, Port]);
+        {ok, {Addr, Port, Packet}} ->
+            lager:warning("[active][bad_ack] Incorrect ack ~p from ~p:~p",
+                       [Packet, Addr, Port]);
+        {error, timeout} ->
+            lager:warning("[active][timeout] Socket timeout. "
+                          "Recevied no ack for iteration ~p", [N])
+    end,
     {next_state, prepare, State#state{it = N + 1}, 0}.
 
 handle_event(_Event, StateName, State) ->
@@ -150,7 +161,9 @@ set_mac(Mac, Intf) ->
     [] = os:cmd(Cmd).
 
 data(#state{it = N, iterations = Its}) when Its =:= N + 1->
-    <<"finish">>;
-data(_) ->
-    <<"data">>.
+    list_to_binary(io_lib:format("finish/~p", [N]));
+data(#state{it = N}) ->
+    list_to_binary(io_lib:format("data/~p", [N])).
 
+expected_ack(It) ->
+    list_to_binary(io_lib:format("ack/~p", [It])).
